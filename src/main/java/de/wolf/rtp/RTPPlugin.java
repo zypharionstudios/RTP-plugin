@@ -31,8 +31,11 @@ public class RTPPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+
         saveDefaultConfig();
+
         Bukkit.getPluginManager().registerEvents(this, this);
+
         getLogger().info("WolfRTP gestartet!");
     }
 
@@ -51,12 +54,8 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             return true;
         }
 
-        if (!player.hasPermission("rtp.use")) {
-            player.sendMessage("§cDu darfst das nicht.");
-            return true;
-        }
-
         oeffneMenu(player);
+
         return true;
     }
 
@@ -66,22 +65,52 @@ public class RTPPlugin extends JavaPlugin implements Listener {
 
     private void oeffneMenu(Player player) {
 
-        var inventory = Bukkit.createInventory(null, 27, MENU_NAME);
+        var inventory = Bukkit.createInventory(
+                null,
+                27,
+                MENU_NAME
+        );
 
-        inventory.setItem(11, item(Material.GRASS_BLOCK, "§a§lOverworld"));
-        inventory.setItem(13, item(Material.NETHERRACK,   "§c§lNether"));
-        inventory.setItem(15, item(Material.END_STONE,    "§d§lEnd"));
+        inventory.setItem(
+                11,
+                item(
+                        Material.GRASS_BLOCK,
+                        "§a§lOverworld"
+                )
+        );
+
+        inventory.setItem(
+                13,
+                item(
+                        Material.NETHERRACK,
+                        "§c§lNether"
+                )
+        );
+
+        inventory.setItem(
+                15,
+                item(
+                        Material.END_STONE,
+                        "§d§lEnd"
+                )
+        );
 
         player.openInventory(inventory);
     }
 
-    private ItemStack item(Material material, String name) {
+    private ItemStack item(
+            Material material,
+            String name) {
+
         ItemStack item = new ItemStack(material);
+
         ItemMeta meta = item.getItemMeta();
+
         if (meta != null) {
             meta.setDisplayName(name);
             item.setItemMeta(meta);
         }
+
         return item;
     }
 
@@ -92,7 +121,10 @@ public class RTPPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void menuKlick(InventoryClickEvent event) {
 
-        if (!event.getView().getTitle().equals(MENU_NAME)) {
+        if (!event.getView()
+                .getTitle()
+                .equals(MENU_NAME)) {
+
             return;
         }
 
@@ -109,16 +141,31 @@ public class RTPPlugin extends JavaPlugin implements Listener {
         int slot = event.getSlot();
 
         if (slot == 11) {
+
             player.closeInventory();
-            starteRTP(player, World.Environment.NORMAL);
+
+            starteRTP(
+                    player,
+                    World.Environment.NORMAL
+            );
 
         } else if (slot == 13) {
+
             player.closeInventory();
-            starteRTP(player, World.Environment.NETHER);
+
+            starteRTP(
+                    player,
+                    World.Environment.NETHER
+            );
 
         } else if (slot == 15) {
+
             player.closeInventory();
-            starteRTP(player, World.Environment.THE_END);
+
+            starteRTP(
+                    player,
+                    World.Environment.THE_END
+            );
         }
     }
 
@@ -126,20 +173,39 @@ public class RTPPlugin extends JavaPlugin implements Listener {
     // RTP STARTEN
     // =========================================
 
-    private void starteRTP(Player player, World.Environment environment) {
+    private void starteRTP(
+            Player player,
+            World.Environment environment) {
 
         UUID uuid = player.getUniqueId();
+
         long jetzt = System.currentTimeMillis();
 
-        long cooldownZeit = getConfig().getLong("cooldown", 5);
+        long cooldownZeit =
+                getConfig().getLong(
+                        "cooldown",
+                        5
+                );
 
         if (cooldown.containsKey(uuid)) {
-            long letzteBenutzung = cooldown.get(uuid);
-            long vergangen = (jetzt - letzteBenutzung) / 1000;
-            long warten = cooldownZeit - vergangen;
+
+            long letzteBenutzung =
+                    cooldown.get(uuid);
+
+            long vergangen =
+                    (jetzt - letzteBenutzung) / 1000;
+
+            long warten =
+                    cooldownZeit - vergangen;
 
             if (warten > 0) {
-                player.sendMessage("§cDu musst noch " + warten + " Sekunden warten.");
+
+                player.sendMessage(
+                        "§cDu musst noch " +
+                        warten +
+                        " Sekunden warten."
+                );
+
                 return;
             }
         }
@@ -147,16 +213,26 @@ public class RTPPlugin extends JavaPlugin implements Listener {
         World world = findeWelt(environment);
 
         if (world == null) {
-            player.sendMessage("§cDiese Dimension wurde nicht gefunden.");
+
+            player.sendMessage(
+                    "§cDiese Dimension wurde nicht gefunden."
+            );
+
             return;
         }
 
-        Location start = player.getLocation().clone();
+        Location start =
+                player.getLocation().clone();
+
         wartendeSpieler.put(uuid, start);
 
         player.sendMessage("");
-        player.sendMessage("§e§lRTP startet in 5 Sekunden...");
-        player.sendMessage("§7Bewege dich nicht!");
+        player.sendMessage(
+                "§e§lRTP startet in 5 Sekunden..."
+        );
+        player.sendMessage(
+                "§7Bewege dich nicht!"
+        );
 
         new BukkitRunnable() {
 
@@ -166,73 +242,134 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             public void run() {
 
                 if (!player.isOnline()) {
+
                     wartendeSpieler.remove(uuid);
+
                     cancel();
+
                     return;
                 }
 
-                Location aktuelle = player.getLocation();
-                Location ursprung = wartendeSpieler.get(uuid);
+                Location aktuelle =
+                        player.getLocation();
+
+                Location ursprung =
+                        wartendeSpieler.get(uuid);
 
                 if (ursprung == null) {
+
                     cancel();
+
                     return;
                 }
 
-                if (istBewegt(ursprung, aktuelle)) {
-                    player.sendMessage("§c§lRTP abgebrochen!");
-                    player.sendMessage("§7Du hast dich bewegt.");
+                if (istBewegt(
+                        ursprung,
+                        aktuelle)) {
+
+                    player.sendMessage(
+                            "§c§lRTP abgebrochen!"
+                    );
+
+                    player.sendMessage(
+                            "§7Du hast dich bewegt."
+                    );
+
                     wartendeSpieler.remove(uuid);
+
                     cancel();
+
                     return;
                 }
 
                 if (sekunden > 1) {
-                    player.sendMessage("§eRTP in §f" + sekunden + " §eSekunden...");
+
+                    player.sendMessage(
+                            "§eRTP in §f" +
+                            sekunden +
+                            " §eSekunden..."
+                    );
+
                     sekunden--;
+
                     return;
                 }
 
                 wartendeSpieler.remove(uuid);
 
-                Location ziel = findeRtpOrt(world);
+                Location ziel =
+                        findeRtpOrt(world);
 
                 if (ziel == null) {
-                    player.sendMessage("§cKein sicherer Ort gefunden.");
+
+                    player.sendMessage(
+                            "§cKein sicherer Ort gefunden."
+                    );
+
                     cancel();
+
                     return;
                 }
 
-                boolean erfolgreich = player.teleport(ziel);
+                boolean erfolgreich =
+                        player.teleport(ziel);
 
                 if (erfolgreich) {
-                    cooldown.put(uuid, System.currentTimeMillis());
-                    player.sendMessage("§a§lRTP erfolgreich!");
+
+                    cooldown.put(
+                            uuid,
+                            System.currentTimeMillis()
+                    );
+
+                    player.sendMessage(
+                            "§a§lRTP erfolgreich!"
+                    );
                 } else {
-                    player.sendMessage("§cTeleport fehlgeschlagen.");
+
+                    player.sendMessage(
+                            "§cTeleport fehlgeschlagen."
+                    );
                 }
 
                 cancel();
             }
 
-        }.runTaskTimer(this, 0L, 20L);
+        }.runTaskTimer(
+                this,
+                0L,
+                20L
+        );
     }
 
     // =========================================
     // BEWEGUNG PRÜFEN
     // =========================================
 
-    private boolean istBewegt(Location start, Location aktuell) {
+    private boolean istBewegt(
+            Location start,
+            Location aktuell) {
 
-        if (!start.getWorld().equals(aktuell.getWorld())) {
+        if (!start.getWorld()
+                .equals(aktuell.getWorld())) {
+
             return true;
         }
 
-        double x = start.getX() - aktuell.getX();
-        double y = start.getY() - aktuell.getY();
-        double z = start.getZ() - aktuell.getZ();
+        double x =
+                start.getX() - aktuell.getX();
 
-        double entfernung = Math.sqrt(x * x + y * y + z * z);
+        double y =
+                start.getY() - aktuell.getY();
+
+        double z =
+                start.getZ() - aktuell.getZ();
+
+        double entfernung =
+                Math.sqrt(
+                        x * x +
+                        y * y +
+                        z * z
+                );
 
         return entfernung > 0.05;
     }
@@ -241,12 +378,18 @@ public class RTPPlugin extends JavaPlugin implements Listener {
     // WELT FINDEN
     // =========================================
 
-    private World findeWelt(World.Environment environment) {
+    private World findeWelt(
+            World.Environment environment) {
+
         for (World world : Bukkit.getWorlds()) {
-            if (world.getEnvironment() == environment) {
+
+            if (world.getEnvironment()
+                    == environment) {
+
                 return world;
             }
         }
+
         return null;
     }
 
@@ -256,26 +399,58 @@ public class RTPPlugin extends JavaPlugin implements Listener {
 
     private Location findeRtpOrt(World world) {
 
-        WorldBorder border = world.getWorldBorder();
+        WorldBorder border =
+                world.getWorldBorder();
 
-        // Radius vom Nullpunkt (0,0) - Standard 250000
-        double radius = getConfig().getDouble("radius", 250000);
-        int maxVersuche = getConfig().getInt("max-attempts", 50);
+        double radius =
+                getConfig().getDouble(
+                        "radius",
+                        250000
+                );
 
-        for (int i = 0; i < maxVersuche; i++) {
+        int maxVersuche =
+                getConfig().getInt(
+                        "max-attempts",
+                        50
+                );
 
-            double winkel = random.nextDouble() * Math.PI * 2;
-            double entfernung = Math.sqrt(random.nextDouble()) * radius;
+        for (int i = 0;
+             i < maxVersuche;
+             i++) {
 
-            double x = Math.cos(winkel) * entfernung;
-            double z = Math.sin(winkel) * entfernung;
+            double winkel =
+                    random.nextDouble()
+                    * Math.PI * 2;
+
+            double entfernung =
+                    Math.sqrt(
+                            random.nextDouble()
+                    ) * radius;
+
+            double x =
+                    Math.cos(winkel)
+                    * entfernung;
+
+            double z =
+                    Math.sin(winkel)
+                    * entfernung;
 
             int blockX = (int) x;
             int blockZ = (int) z;
 
-            int y = world.getHighestBlockYAt(blockX, blockZ);
+            int y =
+                    world.getHighestBlockYAt(
+                            blockX,
+                            blockZ
+                    );
 
-            Location ziel = new Location(world, x, y + 1, z);
+            Location ziel =
+                    new Location(
+                            world,
+                            x,
+                            y + 1,
+                            z
+                    );
 
             if (!border.isInside(ziel)) {
                 continue;
@@ -295,13 +470,33 @@ public class RTPPlugin extends JavaPlugin implements Listener {
 
     private boolean sicher(Location ziel) {
 
-        Material boden  = ziel.clone().subtract(0, 1, 0).getBlock().getType();
-        Material fuesse = ziel.getBlock().getType();
-        Material kopf   = ziel.clone().add(0, 1, 0).getBlock().getType();
+        Material boden =
+                ziel.clone()
+                        .subtract(0, 1, 0)
+                        .getBlock()
+                        .getType();
 
-        if (!boden.isSolid()) return false;
-        if (fuesse.isSolid()) return false;
-        if (kopf.isSolid())   return false;
+        Material fuesse =
+                ziel.getBlock()
+                        .getType();
+
+        Material kopf =
+                ziel.clone()
+                        .add(0, 1, 0)
+                        .getBlock()
+                        .getType();
+
+        if (!boden.isSolid()) {
+            return false;
+        }
+
+        if (fuesse.isSolid()) {
+            return false;
+        }
+
+        if (kopf.isSolid()) {
+            return false;
+        }
 
         if (boden == Material.LAVA ||
                 boden == Material.WATER ||
@@ -311,11 +506,21 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                 boden == Material.SOUL_FIRE ||
                 boden == Material.POWDER_SNOW ||
                 boden == Material.SWEET_BERRY_BUSH) {
+
             return false;
         }
 
-        if (fuesse == Material.WATER || fuesse == Material.LAVA) return false;
-        if (kopf   == Material.WATER || kopf   == Material.LAVA) return false;
+        if (fuesse == Material.WATER ||
+                fuesse == Material.LAVA) {
+
+            return false;
+        }
+
+        if (kopf == Material.WATER ||
+                kopf == Material.LAVA) {
+
+            return false;
+        }
 
         return true;
     }
