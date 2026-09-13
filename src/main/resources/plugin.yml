@@ -9,8 +9,3 @@ commands:
   rtp:
     description: Teleportiert dich zufällig
     usage: /rtp
-
-permissions:
-  rtp.use:
-    description: Erlaubt /rtp
-    default: true
