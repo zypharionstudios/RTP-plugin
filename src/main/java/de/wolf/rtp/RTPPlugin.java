@@ -54,6 +54,11 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             return true;
         }
 
+        if (!player.hasPermission("rtp.use")) {
+            player.sendMessage("§cDu darfst das nicht.");
+            return true;
+        }
+
         oeffneMenu(player);
 
         return true;
@@ -221,6 +226,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             return;
         }
 
+        // Aktuelle Position speichern
         Location start =
                 player.getLocation().clone();
 
@@ -263,6 +269,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                     return;
                 }
 
+                // Bewegung prüfen
                 if (istBewegt(
                         ursprung,
                         aktuelle)) {
@@ -295,6 +302,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                     return;
                 }
 
+                // 5 Sekunden vorbei
                 wartendeSpieler.remove(uuid);
 
                 Location ziel =
@@ -371,6 +379,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                         z * z
                 );
 
+        // Schon kleinste Bewegung zählt
         return entfernung > 0.05;
     }
 
@@ -402,6 +411,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
         WorldBorder border =
                 world.getWorldBorder();
 
+        // Radius vom Nullpunkt (0,0) - Standard 250000
         double radius =
                 getConfig().getDouble(
                         "radius",
@@ -418,6 +428,8 @@ public class RTPPlugin extends JavaPlugin implements Listener {
              i < maxVersuche;
              i++) {
 
+            // Zufälliger Punkt innerhalb
+            // eines Kreises um (0,0)
             double winkel =
                     random.nextDouble()
                     * Math.PI * 2;
@@ -435,14 +447,88 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                     Math.sin(winkel)
                     * entfernung;
 
-            int blockX = (int) x;
-            int blockZ = (int) z;
+            Location ziel;
 
-            int y =
-                    world.getHighestBlockYAt(
+            if (world.getEnvironment() == World.Environment.NETHER) {
+
+                // Im Nether NICHT getHighestBlockYAt verwenden,
+                // weil dadurch das Nether-Dach als höchste
+                // Oberfläche ausgewählt werden kann.
+                ziel = findeNetherRtpOrt(world, x, z);
+
+            } else {
+
+                int y =
+                        world.getHighestBlockYAt(
+                                (int) x,
+                                (int) z
+                        );
+
+                ziel = new Location(
+                        world,
+                        x,
+                        y + 1,
+                        z
+                );
+            }
+
+            if (ziel == null) continue;
+
+            // WorldBorder als Sicherheitsgrenze
+            if (!border.isInside(ziel)) {
+                continue;
+            }
+
+            // Sichere Position
+            if (sicher(ziel)) {
+                return ziel;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Sucht im Nether gezielt einen Boden unterhalb des Nether-Dachs.
+     * Dadurch kann RTP nicht auf der oberen Dachfläche landen.
+     */
+    private Location findeNetherRtpOrt(
+            World world,
+            double x,
+            double z) {
+
+        int blockX = (int) x;
+        int blockZ = (int) z;
+
+        int minY = Math.max(
+                world.getMinHeight() + 2,
+                20
+        );
+
+        int maxY = Math.min(
+                world.getMaxHeight() - 3,
+                120
+        );
+
+        // Von unten nach oben suchen:
+        // niemals die Dachfläche als Ziel nehmen.
+        for (int y = minY; y <= maxY; y++) {
+
+            Material boden =
+                    world.getBlockAt(
                             blockX,
+                            y,
                             blockZ
-                    );
+                    ).getType();
+
+            if (!boden.isSolid()) continue;
+
+            if (boden == Material.LAVA ||
+                    boden == Material.MAGMA_BLOCK ||
+                    boden == Material.FIRE ||
+                    boden == Material.SOUL_FIRE) {
+                continue;
+            }
 
             Location ziel =
                     new Location(
@@ -452,13 +538,29 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                             z
                     );
 
-            if (!border.isInside(ziel)) {
+            if (ziel.getBlock().isSolid()) continue;
+
+            if (ziel.clone()
+                    .add(0, 1, 0)
+                    .getBlock()
+                    .isSolid()) {
                 continue;
             }
 
-            if (sicher(ziel)) {
-                return ziel;
+            if (ziel.getBlock().getType() == Material.LAVA ||
+                    ziel.getBlock().getType() == Material.FIRE ||
+                    ziel.clone()
+                            .add(0, 1, 0)
+                            .getBlock()
+                            .getType() == Material.LAVA ||
+                    ziel.clone()
+                            .add(0, 1, 0)
+                            .getBlock()
+                            .getType() == Material.FIRE) {
+                continue;
             }
+
+            return ziel;
         }
 
         return null;
@@ -486,10 +588,12 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                         .getBlock()
                         .getType();
 
+        // Boden muss fest sein
         if (!boden.isSolid()) {
             return false;
         }
 
+        // Spieler darf nicht in einem Block stehen
         if (fuesse.isSolid()) {
             return false;
         }
@@ -498,6 +602,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             return false;
         }
 
+        // Gefährliche Böden
         if (boden == Material.LAVA ||
                 boden == Material.WATER ||
                 boden == Material.MAGMA_BLOCK ||
@@ -510,6 +615,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             return false;
         }
 
+        // Wasser/Lava beim Spieler
         if (fuesse == Material.WATER ||
                 fuesse == Material.LAVA) {
 
