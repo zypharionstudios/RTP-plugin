@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.WorldBorder;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -23,6 +22,7 @@ public class RTPPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         getLogger().info("RTP gestartet");
+        // WICHTIG: Kein PlayerJoinListener -> es wird NICHTS beim Join teleportiert
     }
 
     @Override
@@ -61,7 +61,7 @@ public class RTPPlugin extends JavaPlugin {
 
             long letzteBenutzung = cooldown.get(player.getUniqueId());
 
-            long warten = getConfig().getLong("cooldown", 60)
+            long warten = getConfig().getLong("cooldown", 5)
                     - (jetzt - letzteBenutzung) / 1000;
 
             if (warten > 0) {
@@ -89,18 +89,13 @@ public class RTPPlugin extends JavaPlugin {
 
     private Location findeOrt(World world) {
 
-        WorldBorder border = world.getWorldBorder();
+        // Radius aus config (Standard 250000) - zählt vom Nullpunkt (0,0)
+        double radius = getConfig().getDouble("radius", 250000);
 
-        double mitteX = border.getCenter().getX();
-        double mitteZ = border.getCenter().getZ();
-
-        double radius = border.getSize() / 2 - 2;
-
-        double minX = mitteX - radius;
-        double maxX = mitteX + radius;
-
-        double minZ = mitteZ - radius;
-        double maxZ = mitteZ + radius;
+        double minX = -radius;
+        double maxX = radius;
+        double minZ = -radius;
+        double maxZ = radius;
 
         int versuche = getConfig().getInt("max-attempts", 50);
 
@@ -116,7 +111,7 @@ public class RTPPlugin extends JavaPlugin {
 
             Location ort = new Location(world, x, y + 1, z);
 
-            if (border.isInside(ort) && sicher(ort)) {
+            if (sicher(ort)) {
                 return ort;
             }
         }
