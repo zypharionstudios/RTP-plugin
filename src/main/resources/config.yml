@@ -2,8 +2,6 @@
 cooldown: 5
 
 # Maximaler Radius vom Nullpunkt (0,0) in Blöcken
-# ACHTUNG: 250000 ist sehr groß und kann den Server laggen!
-# Empfehlung: 5000 - 10000
 radius: 250000
 
 # Wie viele Versuche für einen sicheren Ort
