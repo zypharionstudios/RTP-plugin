@@ -4,3 +4,14 @@ main: de.wolf.rtp.RTPPlugin
 api-version: '1.21'
 author: Wolf
 description: Random Teleport Plugin mit Menü
+
+commands:
+  rtp:
+    description: Öffnet das RTP Menü
+    usage: /rtp
+    aliases: [randomteleport, wild]
+
+permissions:
+  rtp.use:
+    description: Erlaubt die Nutzung von /rtp
+    default: true
