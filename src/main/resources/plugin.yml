@@ -1,0 +1,16 @@
+name: RTP
+version: 1.0
+main: de.wolf.rtp.RTPPlugin
+api-version: '1.21'
+author: Wolf
+description: Random Teleport Plugin
+
+commands:
+  rtp:
+    description: Teleportiert dich zufällig
+    usage: /rtp
+
+permissions:
+  rtp.use:
+    description: Erlaubt /rtp
+    default: true
