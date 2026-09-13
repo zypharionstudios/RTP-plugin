@@ -4,147 +4,510 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Random;
 import java.util.UUID;
 
-public class RTPPlugin extends JavaPlugin {
+public class RTPPlugin extends JavaPlugin implements Listener {
 
-    private HashMap<UUID, Long> cooldown = new HashMap<>();
-    private Random random = new Random();
+    private final HashMap<UUID, Long> cooldown = new HashMap<>();
+    private final HashMap<UUID, Location> wartendeSpieler = new HashMap<>();
+
+    private final Random random = new Random();
+
+    private static final String MENU_NAME = "§8§lRTP";
 
     @Override
     public void onEnable() {
+
         saveDefaultConfig();
-        getLogger().info("RTP gestartet");
+
+        Bukkit.getPluginManager().registerEvents(this, this);
+
+        getLogger().info("WolfRTP gestartet!");
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args) {
 
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             return true;
         }
 
-        Player player = (Player) sender;
-
-        if (!cmd.getName().equalsIgnoreCase("rtp")) {
+        if (!command.getName().equalsIgnoreCase("rtp")) {
             return true;
         }
 
-        World world = Bukkit.getWorld("world");
-
-        if (world == null) {
-            player.sendMessage("§cDie Overworld wurde nicht gefunden.");
-            return true;
-        }
-
-        if (!player.getWorld().equals(world)) {
-            player.sendMessage("§cRTP funktioniert nur in der Overworld.");
-            return true;
-        }
-
-        long jetzt = System.currentTimeMillis();
-
-        if (cooldown.containsKey(player.getUniqueId())) {
-
-            long letzteBenutzung = cooldown.get(player.getUniqueId());
-
-            long warten =
-                    getConfig().getLong("cooldown", 5)
-                    - (jetzt - letzteBenutzung) / 1000;
-
-            if (warten > 0) {
-                player.sendMessage(
-                        "§cWarte noch " + warten + " Sekunden."
-                );
-                return true;
-            }
-        }
-
-        player.sendMessage("§7Suche einen sicheren Ort...");
-
-        Location ziel = findeOrt(world);
-
-        if (ziel == null) {
-            player.sendMessage("§cKein sicherer Ort gefunden.");
-            return true;
-        }
-
-        player.teleport(ziel);
-
-        cooldown.put(player.getUniqueId(), jetzt);
-
-        player.sendMessage("§aDu wurdest zufällig teleportiert!");
+        oeffneMenu(player);
 
         return true;
     }
 
-    private Location findeOrt(World world) {
+    // =========================================
+    // RTP MENÜ
+    // =========================================
 
-        // Radius vom Nullpunkt (0,0) - Standard 250000
-        double radius = getConfig().getDouble("radius", 250000);
+    private void oeffneMenu(Player player) {
 
-        double minX = -radius;
-        double maxX = radius;
+        var inventory = Bukkit.createInventory(
+                null,
+                27,
+                MENU_NAME
+        );
 
-        double minZ = -radius;
-        double maxZ = radius;
+        inventory.setItem(
+                11,
+                item(
+                        Material.GRASS_BLOCK,
+                        "§a§lOverworld"
+                )
+        );
 
-        int versuche = getConfig().getInt("max-attempts", 50);
+        inventory.setItem(
+                13,
+                item(
+                        Material.NETHERRACK,
+                        "§c§lNether"
+                )
+        );
 
-        for (int i = 0; i < versuche; i++) {
+        inventory.setItem(
+                15,
+                item(
+                        Material.END_STONE,
+                        "§d§lEnd"
+                )
+        );
 
-            double x = minX + random.nextDouble() * (maxX - minX);
-            double z = minZ + random.nextDouble() * (maxZ - minZ);
+        player.openInventory(inventory);
+    }
 
-            int blockX = (int) x;
-            int blockZ = (int) z;
+    private org.bukkit.inventory.ItemStack item(
+            Material material,
+            String name) {
 
-            int y = world.getHighestBlockYAt(blockX, blockZ);
+        var item = new org.bukkit.inventory.ItemStack(material);
 
-            Location ort = new Location(
-                    world,
-                    x,
-                    y + 1,
-                    z
+        var meta = item.getItemMeta();
+
+        if (meta != null) {
+            meta.setDisplayName(name);
+            item.setItemMeta(meta);
+        }
+
+        return item;
+    }
+
+    // =========================================
+    // MENÜ KLICK
+    // =========================================
+
+    @EventHandler
+    public void menuKlick(InventoryClickEvent event) {
+
+        if (!event.getView()
+                .getTitle()
+                .equals(MENU_NAME)) {
+
+            return;
+        }
+
+        event.setCancelled(true);
+
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        if (event.getClickedInventory() == null) {
+            return;
+        }
+
+        int slot = event.getSlot();
+
+        if (slot == 11) {
+
+            player.closeInventory();
+
+            starteRTP(
+                    player,
+                    World.Environment.NORMAL
             );
 
-            if (sicher(ort)) {
-                return ort;
+        } else if (slot == 13) {
+
+            player.closeInventory();
+
+            starteRTP(
+                    player,
+                    World.Environment.NETHER
+            );
+
+        } else if (slot == 15) {
+
+            player.closeInventory();
+
+            starteRTP(
+                    player,
+                    World.Environment.THE_END
+            );
+        }
+    }
+
+    // =========================================
+    // RTP STARTEN
+    // =========================================
+
+    private void starteRTP(
+            Player player,
+            World.Environment environment) {
+
+        UUID uuid = player.getUniqueId();
+
+        long jetzt = System.currentTimeMillis();
+
+        long cooldownZeit =
+                getConfig().getLong(
+                        "cooldown",
+                        5
+                );
+
+        if (cooldown.containsKey(uuid)) {
+
+            long letzteBenutzung =
+                    cooldown.get(uuid);
+
+            long vergangen =
+                    (jetzt - letzteBenutzung) / 1000;
+
+            long warten =
+                    cooldownZeit - vergangen;
+
+            if (warten > 0) {
+
+                player.sendMessage(
+                        "§cDu musst noch " +
+                        warten +
+                        " Sekunden warten."
+                );
+
+                return;
+            }
+        }
+
+        World world = findeWelt(environment);
+
+        if (world == null) {
+
+            player.sendMessage(
+                    "§cDiese Dimension wurde nicht gefunden."
+            );
+
+            return;
+        }
+
+        // Aktuelle Position speichern
+        Location start =
+                player.getLocation().clone();
+
+        wartendeSpieler.put(uuid, start);
+
+        player.sendMessage("");
+        player.sendMessage(
+                "§e§lRTP startet in 5 Sekunden..."
+        );
+        player.sendMessage(
+                "§7Bewege dich nicht!"
+        );
+
+        new BukkitRunnable() {
+
+            int sekunden = 5;
+
+            @Override
+            public void run() {
+
+                if (!player.isOnline()) {
+
+                    wartendeSpieler.remove(uuid);
+
+                    cancel();
+
+                    return;
+                }
+
+                Location aktuelle =
+                        player.getLocation();
+
+                Location ursprung =
+                        wartendeSpieler.get(uuid);
+
+                if (ursprung == null) {
+
+                    cancel();
+
+                    return;
+                }
+
+                // Bewegung prüfen
+                if (istBewegt(
+                        ursprung,
+                        aktuelle)) {
+
+                    player.sendMessage(
+                            "§c§lRTP abgebrochen!"
+                    );
+
+                    player.sendMessage(
+                            "§7Du hast dich bewegt."
+                    );
+
+                    wartendeSpieler.remove(uuid);
+
+                    cancel();
+
+                    return;
+                }
+
+                if (sekunden > 1) {
+
+                    player.sendMessage(
+                            "§eRTP in §f" +
+                            sekunden +
+                            " §eSekunden..."
+                    );
+
+                    sekunden--;
+
+                    return;
+                }
+
+                // 5 Sekunden vorbei
+                wartendeSpieler.remove(uuid);
+
+                Location ziel =
+                        findeRtpOrt(world);
+
+                if (ziel == null) {
+
+                    player.sendMessage(
+                            "§cKein sicherer Ort gefunden."
+                    );
+
+                    cancel();
+
+                    return;
+                }
+
+                boolean erfolgreich =
+                        player.teleport(ziel);
+
+                if (erfolgreich) {
+
+                    cooldown.put(
+                            uuid,
+                            System.currentTimeMillis()
+                    );
+
+                    player.sendMessage(
+                            "§a§lRTP erfolgreich!"
+                    );
+                } else {
+
+                    player.sendMessage(
+                            "§cTeleport fehlgeschlagen."
+                    );
+                }
+
+                cancel();
+            }
+
+        }.runTaskTimer(
+                this,
+                0L,
+                20L
+        );
+    }
+
+    // =========================================
+    // BEWEGUNG PRÜFEN
+    // =========================================
+
+    private boolean istBewegt(
+            Location start,
+            Location aktuell) {
+
+        if (!start.getWorld()
+                .equals(aktuell.getWorld())) {
+
+            return true;
+        }
+
+        double x =
+                start.getX() - aktuell.getX();
+
+        double y =
+                start.getY() - aktuell.getY();
+
+        double z =
+                start.getZ() - aktuell.getZ();
+
+        double entfernung =
+                Math.sqrt(
+                        x * x +
+                        y * y +
+                        z * z
+                );
+
+        // Schon kleinste Bewegung zählt
+        return entfernung > 0.05;
+    }
+
+    // =========================================
+    // WELT FINDEN
+    // =========================================
+
+    private World findeWelt(
+            World.Environment environment) {
+
+        for (World world : Bukkit.getWorlds()) {
+
+            if (world.getEnvironment()
+                    == environment) {
+
+                return world;
             }
         }
 
         return null;
     }
 
-    private boolean sicher(Location ort) {
+    // =========================================
+    // RTP POSITION
+    // =========================================
 
-        Material boden = ort.clone()
-                .subtract(0, 1, 0)
-                .getBlock()
-                .getType();
+    private Location findeRtpOrt(World world) {
 
-        Material unten = ort.getBlock().getType();
+        WorldBorder border =
+                world.getWorldBorder();
 
-        Material oben = ort.clone()
-                .add(0, 1, 0)
-                .getBlock()
-                .getType();
+        // Radius vom Nullpunkt (0,0) - Standard 250000
+        double radius =
+                getConfig().getDouble(
+                        "radius",
+                        250000
+                );
 
+        int maxVersuche =
+                getConfig().getInt(
+                        "max-attempts",
+                        50
+                );
+
+        for (int i = 0;
+             i < maxVersuche;
+             i++) {
+
+            // Zufälliger Punkt innerhalb
+            // eines Kreises um (0,0)
+            double winkel =
+                    random.nextDouble()
+                    * Math.PI * 2;
+
+            double entfernung =
+                    Math.sqrt(
+                            random.nextDouble()
+                    ) * radius;
+
+            double x =
+                    Math.cos(winkel)
+                    * entfernung;
+
+            double z =
+                    Math.sin(winkel)
+                    * entfernung;
+
+            int blockX = (int) x;
+            int blockZ = (int) z;
+
+            int y =
+                    world.getHighestBlockYAt(
+                            blockX,
+                            blockZ
+                    );
+
+            Location ziel =
+                    new Location(
+                            world,
+                            x,
+                            y + 1,
+                            z
+                    );
+
+            // WorldBorder als Sicherheitsgrenze
+            if (!border.isInside(ziel)) {
+                continue;
+            }
+
+            // Sichere Position
+            if (sicher(ziel)) {
+                return ziel;
+            }
+        }
+
+        return null;
+    }
+
+    // =========================================
+    // SICHERHEIT
+    // =========================================
+
+    private boolean sicher(Location ziel) {
+
+        Material boden =
+                ziel.clone()
+                        .subtract(0, 1, 0)
+                        .getBlock()
+                        .getType();
+
+        Material fuesse =
+                ziel.getBlock()
+                        .getType();
+
+        Material kopf =
+                ziel.clone()
+                        .add(0, 1, 0)
+                        .getBlock()
+                        .getType();
+
+        // Boden muss fest sein
         if (!boden.isSolid()) {
             return false;
         }
 
-        if (unten.isSolid() || oben.isSolid()) {
+        // Spieler darf nicht in einem Block stehen
+        if (fuesse.isSolid()) {
             return false;
         }
 
+        if (kopf.isSolid()) {
+            return false;
+        }
+
+        // Gefährliche Böden
         if (boden == Material.LAVA ||
                 boden == Material.WATER ||
                 boden == Material.MAGMA_BLOCK ||
@@ -153,16 +516,20 @@ public class RTPPlugin extends JavaPlugin {
                 boden == Material.SOUL_FIRE ||
                 boden == Material.POWDER_SNOW ||
                 boden == Material.SWEET_BERRY_BUSH) {
+
             return false;
         }
 
-        if (unten == Material.WATER ||
-                unten == Material.LAVA) {
+        // Wasser/Lava beim Spieler
+        if (fuesse == Material.WATER ||
+                fuesse == Material.LAVA) {
+
             return false;
         }
 
-        if (oben == Material.WATER ||
-                oben == Material.LAVA) {
+        if (kopf == Material.WATER ||
+                kopf == Material.LAVA) {
+
             return false;
         }
 
