@@ -1,0 +1,5 @@
+# Cooldown in Sekunden
+cooldown: 60
+
+# Wie viele Versuche für einen sicheren Ort
+max-attempts: 50
