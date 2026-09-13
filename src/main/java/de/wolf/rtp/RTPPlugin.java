@@ -37,13 +37,22 @@ public class RTPPlugin extends JavaPlugin implements Listener {
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args) {
 
         if (!(sender instanceof Player player)) {
             return true;
         }
 
         if (!command.getName().equalsIgnoreCase("rtp")) {
+            return true;
+        }
+
+        if (!player.hasPermission("rtp.use")) {
+            player.sendMessage("§cDu darfst das nicht.");
             return true;
         }
 
@@ -162,6 +171,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                     return;
                 }
 
+                Location aktuelle = player.getLocation();
                 Location ursprung = wartendeSpieler.get(uuid);
 
                 if (ursprung == null) {
@@ -169,7 +179,7 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                     return;
                 }
 
-                if (istBewegt(ursprung, player.getLocation())) {
+                if (istBewegt(ursprung, aktuelle)) {
                     player.sendMessage("§c§lRTP abgebrochen!");
                     player.sendMessage("§7Du hast dich bewegt.");
                     wartendeSpieler.remove(uuid);
@@ -193,7 +203,9 @@ public class RTPPlugin extends JavaPlugin implements Listener {
                     return;
                 }
 
-                if (player.teleport(ziel)) {
+                boolean erfolgreich = player.teleport(ziel);
+
+                if (erfolgreich) {
                     cooldown.put(uuid, System.currentTimeMillis());
                     player.sendMessage("§a§lRTP erfolgreich!");
                 } else {
@@ -258,64 +270,20 @@ public class RTPPlugin extends JavaPlugin implements Listener {
             double x = Math.cos(winkel) * entfernung;
             double z = Math.sin(winkel) * entfernung;
 
-            Location ziel;
+            int blockX = (int) x;
+            int blockZ = (int) z;
 
-            if (world.getEnvironment() == World.Environment.NETHER) {
-                // Im Nether NICHT getHighestBlockYAt verwenden,
-                // weil sonst das Nether-Dach gewählt werden kann.
-                ziel = findeNetherRtpOrt(world, x, z);
-            } else {
-                int y = world.getHighestBlockYAt((int) x, (int) z);
-                ziel = new Location(world, x, y + 1, z);
-            }
-
-            if (ziel == null) continue;
-            if (!border.isInside(ziel)) continue;
-            if (sicher(ziel)) return ziel;
-        }
-
-        return null;
-    }
-
-    /**
-     * Sucht im Nether gezielt einen Boden unterhalb des Nether-Dachs.
-     * Dadurch kann RTP nicht auf der oberen Dachfläche landen.
-     */
-    private Location findeNetherRtpOrt(World world, double x, double z) {
-
-        int blockX = (int) x;
-        int blockZ = (int) z;
-
-        int minY = Math.max(world.getMinHeight() + 2, 20);
-        int maxY = Math.min(world.getMaxHeight() - 3, 120);
-
-        // Von unten nach oben suchen: niemals die Dachfläche als Ziel nehmen.
-        for (int y = minY; y <= maxY; y++) {
-
-            Material boden = world.getBlockAt(blockX, y, blockZ).getType();
-
-            if (!boden.isSolid()) continue;
-
-            if (boden == Material.LAVA ||
-                    boden == Material.MAGMA_BLOCK ||
-                    boden == Material.FIRE ||
-                    boden == Material.SOUL_FIRE) {
-                continue;
-            }
+            int y = world.getHighestBlockYAt(blockX, blockZ);
 
             Location ziel = new Location(world, x, y + 1, z);
 
-            if (ziel.getBlock().isSolid()) continue;
-            if (ziel.clone().add(0, 1, 0).getBlock().isSolid()) continue;
-
-            if (ziel.getBlock().getType() == Material.LAVA ||
-                    ziel.getBlock().getType() == Material.FIRE ||
-                    ziel.clone().add(0, 1, 0).getBlock().getType() == Material.LAVA ||
-                    ziel.clone().add(0, 1, 0).getBlock().getType() == Material.FIRE) {
+            if (!border.isInside(ziel)) {
                 continue;
             }
 
-            return ziel;
+            if (sicher(ziel)) {
+                return ziel;
+            }
         }
 
         return null;
@@ -331,9 +299,9 @@ public class RTPPlugin extends JavaPlugin implements Listener {
         Material fuesse = ziel.getBlock().getType();
         Material kopf   = ziel.clone().add(0, 1, 0).getBlock().getType();
 
-        if (!boden.isSolid())  return false;
-        if (fuesse.isSolid())  return false;
-        if (kopf.isSolid())    return false;
+        if (!boden.isSolid()) return false;
+        if (fuesse.isSolid()) return false;
+        if (kopf.isSolid())   return false;
 
         if (boden == Material.LAVA ||
                 boden == Material.WATER ||
