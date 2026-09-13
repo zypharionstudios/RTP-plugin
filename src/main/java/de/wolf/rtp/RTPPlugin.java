@@ -22,7 +22,6 @@ public class RTPPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         getLogger().info("RTP gestartet");
-        // WICHTIG: Kein PlayerJoinListener -> es wird NICHTS beim Join teleportiert
     }
 
     @Override
@@ -38,20 +37,15 @@ public class RTPPlugin extends JavaPlugin {
             return true;
         }
 
-        if (!player.hasPermission("rtp.use")) {
-            player.sendMessage("§cDu darfst das nicht.");
-            return true;
-        }
-
         World world = Bukkit.getWorld("world");
 
         if (world == null) {
-            player.sendMessage("§cDie Welt wurde nicht gefunden.");
+            player.sendMessage("§cDie Overworld wurde nicht gefunden.");
             return true;
         }
 
         if (!player.getWorld().equals(world)) {
-            player.sendMessage("§cRTP geht nur in der Overworld.");
+            player.sendMessage("§cRTP funktioniert nur in der Overworld.");
             return true;
         }
 
@@ -61,11 +55,14 @@ public class RTPPlugin extends JavaPlugin {
 
             long letzteBenutzung = cooldown.get(player.getUniqueId());
 
-            long warten = getConfig().getLong("cooldown", 5)
+            long warten =
+                    getConfig().getLong("cooldown", 5)
                     - (jetzt - letzteBenutzung) / 1000;
 
             if (warten > 0) {
-                player.sendMessage("§cWarte noch " + warten + " Sekunden.");
+                player.sendMessage(
+                        "§cWarte noch " + warten + " Sekunden."
+                );
                 return true;
             }
         }
@@ -80,20 +77,22 @@ public class RTPPlugin extends JavaPlugin {
         }
 
         player.teleport(ziel);
+
         cooldown.put(player.getUniqueId(), jetzt);
 
-        player.sendMessage("§aDu wurdest teleportiert!");
+        player.sendMessage("§aDu wurdest zufällig teleportiert!");
 
         return true;
     }
 
     private Location findeOrt(World world) {
 
-        // Radius aus config (Standard 250000) - zählt vom Nullpunkt (0,0)
+        // Radius vom Nullpunkt (0,0) - Standard 250000
         double radius = getConfig().getDouble("radius", 250000);
 
         double minX = -radius;
         double maxX = radius;
+
         double minZ = -radius;
         double maxZ = radius;
 
@@ -109,7 +108,12 @@ public class RTPPlugin extends JavaPlugin {
 
             int y = world.getHighestBlockYAt(blockX, blockZ);
 
-            Location ort = new Location(world, x, y + 1, z);
+            Location ort = new Location(
+                    world,
+                    x,
+                    y + 1,
+                    z
+            );
 
             if (sicher(ort)) {
                 return ort;
@@ -152,11 +156,13 @@ public class RTPPlugin extends JavaPlugin {
             return false;
         }
 
-        if (unten == Material.WATER || unten == Material.LAVA) {
+        if (unten == Material.WATER ||
+                unten == Material.LAVA) {
             return false;
         }
 
-        if (oben == Material.WATER || oben == Material.LAVA) {
+        if (oben == Material.WATER ||
+                oben == Material.LAVA) {
             return false;
         }
 
